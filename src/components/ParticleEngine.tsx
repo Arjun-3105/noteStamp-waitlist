@@ -6,11 +6,10 @@ import { MAX_PARTICLES, SHAPES, ShapeName, starfield } from '@/lib/particles/sha
 interface Props {
   shapeName: ShapeName;
   color: string;
-  secondaryColor?: string;
   onReady?: () => void;
 }
 
-export default function ParticleEngine({ shapeName, color, secondaryColor, onReady }: Props) {
+export default function ParticleEngine({ shapeName, color, onReady }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<{
     renderer: THREE.WebGLRenderer;

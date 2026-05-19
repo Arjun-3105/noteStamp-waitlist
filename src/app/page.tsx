@@ -52,7 +52,7 @@ function easeOut3(t: number) { return 1 - Math.pow(1 - t, 3); }
 function easeIn3(t: number) { return t * t * t; }
 
 // ── Hub Canvas ────────────────────────────────────────────────────────────────
-function HubCanvas({ onPortalClick }: { onPortalClick: (id: PortalId) => void }) {
+function HubCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoveredRef = useRef<PortalId | null>(null);
   const flyingRef = useRef<PortalId | null>(null);
@@ -287,7 +287,7 @@ export default function HubPage() {
 
   return (
     <main className="relative w-full h-screen overflow-hidden bg-[#030303]">
-      <HubCanvas onPortalClick={handlePortalClick} />
+      <HubCanvas />
       <Nav />
 
       {/* ── Portal floating labels — positioned to match 3D arch projections ── */}

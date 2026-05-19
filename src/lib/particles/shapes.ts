@@ -55,7 +55,7 @@ export function cube(n = 3000): Float32Array {
   const pos: number[] = [];
   const s = 2.6;
   const verts: number[][] = [];
-  for (let x of [-s,s]) for (let y of [-s,s]) for (let z of [-s,s]) verts.push([x,y,z]);
+  for (const x of [-s,s]) for (const y of [-s,s]) for (const z of [-s,s]) verts.push([x,y,z]);
   const edges: [number,number][] = [
     [0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]
   ];
