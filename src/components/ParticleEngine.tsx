@@ -57,7 +57,8 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
     for (let i = 0; i < posAttr.length; i++) {
       s.currentPositions[i] = posAttr[i];
     }
-    s.targetPositions = SHAPES[newShape]();
+    const result = SHAPES[newShape]();
+    s.targetPositions = result instanceof Float32Array ? result : result.positions;
     s.morphProgress = 0;
     s.morphing = true;
     s.morphStartTime = performance.now();
@@ -79,7 +80,10 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
     camera.position.set(0, 0, 8);
 
     // Main particle geometry
-    const initPositions = SHAPES[shapeName]();
+    const initRes = SHAPES[shapeName]();
+    const initPositions = initRes instanceof Float32Array ? initRes : initRes.positions;
+    const initColors = initRes instanceof Float32Array ? null : initRes.colors;
+
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(initPositions.slice(), 3));
 
@@ -88,7 +92,11 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
     const baseCol = new THREE.Color(color);
     for (let i = 0; i < MAX_PARTICLES; i++) {
       const idx = i * 3;
-      if (shapeName === 'rocket' && i >= FLAME_START) {
+      if (initColors) {
+        colors[idx] = initColors[idx];
+        colors[idx+1] = initColors[idx+1];
+        colors[idx+2] = initColors[idx+2];
+      } else if (shapeName === 'rocket' && i >= FLAME_START) {
         const rand = Math.random();
         if (rand < 0.45) {
           colors[idx] = 1.0; colors[idx+1] = 0.85; colors[idx+2] = 0.1; // Hot Yellow
@@ -457,13 +465,20 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
     morphTo(shapeName);
 
     // Rebuild colors dynamically
+    const res = SHAPES[shapeName]();
+    const shapeColors = res instanceof Float32Array ? null : res.colors;
+
     const baseCol = new THREE.Color(color);
     const colorAttr = s.mainPoints.geometry.attributes.color as THREE.BufferAttribute;
     if (colorAttr) {
       const arr = colorAttr.array as Float32Array;
       for (let i = 0; i < MAX_PARTICLES; i++) {
         const idx = i * 3;
-        if (shapeName === 'rocket' && i >= FLAME_START) {
+        if (shapeColors) {
+          arr[idx] = shapeColors[idx];
+          arr[idx+1] = shapeColors[idx+1];
+          arr[idx+2] = shapeColors[idx+2];
+        } else if (shapeName === 'rocket' && i >= FLAME_START) {
           const rand = Math.random();
           if (rand < 0.45) {
             arr[idx] = 1.0; arr[idx+1] = 0.85; arr[idx+2] = 0.1; // Yellow

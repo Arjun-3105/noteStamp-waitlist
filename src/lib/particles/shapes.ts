@@ -214,19 +214,21 @@ export function sapling(n = 3200): ShapeResult {
 }
 
 // ── 7. Full 3D tree ───────────────────────────────────────────────────────────
-export function tree(n = 4500): Float32Array {
+export function tree(n = 4500): ShapeResult {
   const pos: number[] = [];
-  pushTree(pos, n, 0, 0, 0, 1.0);
-  return fill(pos);
+  const col: number[] = [];
+  pushTree(pos, col, n, 0, 0, 0, 1.0);
+  return { positions: fill(pos), colors: fillColors(col, 0.54, 0.35, 0.17) };
 }
 
 // ── 7.5 Full 3D Forest ────────────────────────────────────────────────────────
-export function forest(n = 4500): Float32Array {
+export function forest(n = 4500): ShapeResult {
   const pos: number[] = [];
+  const col: number[] = [];
   
   // Center large tree
   const centerN = Math.floor(n * 0.4);
-  pushTree(pos, centerN, 0, 0, 0, 1.1);
+  pushTree(pos, col, centerN, 0, 0, 0, 1.1);
 
   // Surrounding smaller trees
   const numTrees = 5;
@@ -240,18 +242,20 @@ export function forest(n = 4500): Float32Array {
     const scale = 0.4 + Math.random() * 0.3;
     // Lower them slightly so they look planted on the same implicit ground level
     const ty = -1.6 * (1.1 - scale);
-    pushTree(pos, treeN, tx, ty, tz, scale);
+    pushTree(pos, col, treeN, tx, ty, tz, scale);
   }
 
   // Add some ground moss/grass scattering to fill space
   const remaining = n - pos.length / 3;
+  const cGrass = [0.18, 0.42, 0.12]; // Forest green ground cover
   for (let i = 0; i < remaining; i++) {
     const r = Math.sqrt(Math.random()) * 5.0;
     const a = Math.random() * Math.PI * 2;
     pos.push(r * Math.cos(a), -1.8 + gauss(0.1), r * Math.sin(a));
+    col.push(cGrass[0] + gauss(0.03), cGrass[1] + gauss(0.03), cGrass[2] + gauss(0.03));
   }
 
-  return fill(pos);
+  return { positions: fill(pos), colors: fillColors(col, 0.0, 1.0, 0.53) };
 }
 
 // ── 8. Knowledge globe ────────────────────────────────────────────────────────
@@ -748,11 +752,11 @@ export function planet(n = 4500): Float32Array {
 }
 
 // Registry for dynamic lookup
-export const SHAPES: Record<ShapeName, () => Float32Array> = {
+export const SHAPES: Record<ShapeName, () => ShapeResult> = {
   chaos, streams, cube, torusKnot,
   disc, sapling, tree, globe,
   hexagon, hexChain, seal, diamond,
   hubSeal, starfield,
-  rocket, launchPad, sunCore, spacePlane, planet, forest,
+  rocket, launchPad, sunCore, spacePlane, planet, forest, seed,
 };
 
