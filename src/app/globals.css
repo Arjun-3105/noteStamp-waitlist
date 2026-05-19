@@ -2,26 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #030303;
+  color: #f0f8ff;
+  overflow: hidden;
+  height: 100%;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+.font-bebas { font-family: var(--font-bebas), 'Bebas Neue', sans-serif; }
+.font-raleway { font-family: var(--font-raleway), 'Raleway', sans-serif; }
+.font-mono { font-family: 'Courier New', monospace; }
+
+/* Smooth scene transitions */
+.scene-enter { animation: sceneIn 0.6s ease forwards; }
+@keyframes sceneIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
+/* Glow effects */
+.glow-cyan  { text-shadow: 0 0 30px rgba(0, 229, 255, 0.6); }
+.glow-green { text-shadow: 0 0 30px rgba(0, 255, 136, 0.6); }
+.glow-gold  { text-shadow: 0 0 30px rgba(255, 215, 0, 0.6); }
+
+/* Scrollbar hidden */
+::-webkit-scrollbar { display: none; }
