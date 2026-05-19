@@ -167,25 +167,32 @@ function HubCanvas() {
         let targetRX = tMouseY * -0.10;
         let targetRZ = -tMouseX * 0.06;
 
+        // Base positions with idle breathing floating
+        let targetPX = Math.sin(time * 0.38) * 0.08;
+        let targetPY = Math.sin(time * 0.6) * 0.18;
+        let targetPZ = 0;
+
         if (targetPortal) {
-          // With base = PI (nose toward -Z):
-          //   atan2(-diff.x, -diff.z) gives CCW angle from -Z axis toward portal
-          //   Adding this to PI correctly tilts nose toward portal
-          //   IMPORT (diff.x=-12): atan2(12,-8)≈55° → rotation>PI → nose tilts LEFT ✓
-          //   LEARN  (diff.x=+12): atan2(-12,-8)≈-55° → rotation<PI → nose tilts RIGHT ✓
-          //   EARN   (diff.x= 0): atan2(0,...)=0 → no change ✓
           const diff = targetPortal.pos.clone().sub(planePosWorld);
           const angle = Math.atan2(-diff.x, -diff.z);
           targetRY = Math.PI + clamp(angle * 0.55, -0.5, 0.5);
-          targetRX = clamp(-diff.y * 0.04, -0.2, 0.2);
+          // diff.y > 0 means the portal is above. Positive targetRX correctly tilts nose UP.
+          targetRX = clamp(diff.y * 0.12, -0.35, 0.35);
           targetRZ = -angle * 0.08;
+
+          // Move the plane slightly closer to the portal when hovered
+          targetPX += targetPortal.pos.x * 0.15;
+          targetPY += targetPortal.pos.y * 0.15;
+          targetPZ += targetPortal.pos.z * 0.15;
         }
 
         planeMesh.rotation.y = lerp(planeMesh.rotation.y, targetRY, 0.04);
         planeMesh.rotation.x = lerp(planeMesh.rotation.x, targetRX, 0.04);
         planeMesh.rotation.z = lerp(planeMesh.rotation.z, targetRZ, 0.04);
-        planeMesh.position.y = Math.sin(time * 0.6) * 0.18;
-        planeMesh.position.x = Math.sin(time * 0.38) * 0.08;
+        
+        planeMesh.position.x = lerp(planeMesh.position.x, targetPX, 0.03);
+        planeMesh.position.y = lerp(planeMesh.position.y, targetPY, 0.03);
+        planeMesh.position.z = lerp(planeMesh.position.z, targetPZ, 0.03);
 
         // Camera gentle parallax
         camera.position.x = lerp(camera.position.x, tMouseX * 0.5, 0.04);
@@ -200,9 +207,9 @@ function HubCanvas() {
         const tp = easeIn3(t);
 
         // Plane flies toward portal
-        planeMesh.position.x = lerp(0, pd.pos.x * 0.75, tp);
-        planeMesh.position.y = lerp(0, pd.pos.y * 0.75, tp);
-        planeMesh.position.z = lerp(0, pd.pos.z * 0.65, tp);
+        planeMesh.position.x = lerp(planeMesh.position.x, pd.pos.x * 0.75, tp);
+        planeMesh.position.y = lerp(planeMesh.position.y, pd.pos.y * 0.75, tp);
+        planeMesh.position.z = lerp(planeMesh.position.z, pd.pos.z * 0.65, tp);
         planeMesh.scale.setScalar(lerp(1, 0.35, tp));
 
         // Camera zooms forward fast
@@ -212,7 +219,19 @@ function HubCanvas() {
         camera.lookAt(pd.pos.x * 0.3, pd.pos.y * 0.3, 0);
       }
 
+      // ── Forward flight illusion (stars rush past camera) ──
+      const starPosAttr = starPts.geometry.attributes.position.array as Float32Array;
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        starPosAttr[i * 3 + 2] += 0.08; // Base forward speed
+        if (starPosAttr[i * 3 + 2] > 12) {
+          starPosAttr[i * 3 + 2] = -40; // recycle deep into background
+          starPosAttr[i * 3]     = (Math.random() - 0.5) * 80;
+          starPosAttr[i * 3 + 1] = (Math.random() - 0.5) * 60;
+        }
+      }
+      starPts.geometry.attributes.position.needsUpdate = true;
       starPts.rotation.y += 0.00006;
+      
       renderer.render(scene, camera);
     }
     animate();
@@ -339,10 +358,12 @@ export default function HubPage() {
             <span
               className="font-bebas tracking-[5px] transition-all duration-300 select-none"
               style={{
-                fontSize: isHov ? 28 : 22,
-                color: isHov ? pd.hex : `${pd.hex}99`,
+                fontSize: 28,
+                color: pd.hex,
                 textShadow: isHov ? `0 0 20px ${pd.hex}66` : 'none',
                 letterSpacing: '5px',
+                opacity: isHov ? 1 : 0,
+                transform: isHov ? 'translateY(0)' : 'translateY(10px)'
               }}
             >
               {pd.label}
@@ -350,21 +371,33 @@ export default function HubPage() {
 
             {/* Sub label */}
             <span
-              className="font-raleway text-[10px] tracking-[2px] uppercase transition-colors duration-300 select-none"
-              style={{ color: isHov ? `${pd.hex}bb` : 'rgba(255,255,255,0.22)' }}
+              className="font-raleway text-[10px] tracking-[2px] uppercase transition-all duration-300 select-none"
+              style={{ 
+                color: `${pd.hex}bb`,
+                opacity: isHov ? 1 : 0,
+                transform: isHov ? 'translateY(0)' : 'translateY(10px)'
+              }}
             >
               {pd.sub}
             </span>
 
             {/* Enter arrow */}
-            {isHov && (
-              <span
-                className="font-mono text-[10px] tracking-[3px] animate-bounce select-none"
-                style={{ color: pd.hex }}
-              >
-                → enter
-              </span>
-            )}
+            <div
+              className="transition-all duration-300"
+              style={{
+                opacity: isHov ? 1 : 0,
+                transform: isHov ? 'translateY(0)' : 'translateY(10px)'
+              }}
+            >
+              {isHov && (
+                <span
+                  className="font-mono text-[10px] tracking-[3px] animate-bounce select-none block mt-1"
+                  style={{ color: pd.hex }}
+                >
+                  → enter
+                </span>
+              )}
+            </div>
           </button>
         );
       })}

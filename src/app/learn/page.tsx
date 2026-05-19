@@ -16,7 +16,7 @@ const SCENES: {
   showForm?: boolean;
 }[] = [
   {
-    number: '001', shape: 'disc', color: '#ffd700',
+    number: '001', shape: 'seed', color: '#ffd700',
     headline: 'EVERY IDEA\nSTARTS AS A NOTE',
     sub: 'Paste a source. Notestamp reads it and writes your first note automatically. Your seed of understanding, planted.',
     counterLabel: 'MASTERY', counterTarget: 0,
@@ -34,7 +34,7 @@ const SCENES: {
     counterLabel: 'MASTERY', counterTarget: 80,
   },
   {
-    number: '004', shape: 'globe', color: '#ffd700',
+    number: '004', shape: 'forest', color: '#ffd700',
     headline: 'TOTAL\nMASTERY',
     sub: 'Earn a micro-badge for every source you complete. Stack them into skill badges. Stack those into master credentials.',
     counterLabel: 'MASTERY', counterTarget: 99,

@@ -6,7 +6,9 @@ export type ShapeName =
   | 'disc' | 'sapling' | 'tree' | 'globe'
   | 'hexagon' | 'hexChain' | 'seal' | 'diamond'
   | 'hubSeal' | 'starfield'
-  | 'rocket' | 'launchPad' | 'sunCore' | 'spacePlane';
+  | 'rocket' | 'launchPad' | 'sunCore' | 'spacePlane' | 'planet' | 'forest' | 'seed';
+
+export type ShapeResult = Float32Array | { positions: Float32Array, colors: Float32Array };
 
 export const MAX_PARTICLES = 5000;
 
@@ -24,6 +26,58 @@ function lerp3(a: number[], b: number[], t: number): number[] {
 function fill(pos: number[]): Float32Array {
   while (pos.length / 3 < MAX_PARTICLES) pos.push(0, 0, 0);
   return new Float32Array(pos.slice(0, MAX_PARTICLES * 3));
+}
+
+function fillColors(col: number[], defaultR: number, defaultG: number, defaultB: number): Float32Array {
+  while (col.length / 3 < MAX_PARTICLES) col.push(defaultR, defaultG, defaultB);
+  return new Float32Array(col.slice(0, MAX_PARTICLES * 3));
+}
+
+// Helper to push a tree into an existing position array and assign colors
+function pushTree(pos: number[], col: number[], n: number, tx: number, ty: number, tz: number, scale: number) {
+  // trunk (brown: #8B5A2B -> 0.54, 0.35, 0.17)
+  const cTrunk = [0.54, 0.35, 0.17];
+  for (let i = 0; i < Math.floor(n*0.13); i++) {
+    const t = Math.random(); const r = 0.18*(1-t*0.65)*scale;
+    pos.push(tx+gauss(r), ty+(t*3.8-1.6)*scale, tz+gauss(r));
+    col.push(...cTrunk);
+  }
+  const branches = [
+    {d:[1,1,0],h:0.9,l:2.0},{d:[-1,1,0],h:0.9,l:2.0},
+    {d:[0.7,0.85,0.7],h:1.3,l:1.7},{d:[-0.7,0.85,0.7],h:1.3,l:1.7},
+    {d:[0.7,0.85,-0.7],h:1.3,l:1.7},{d:[-0.7,0.85,-0.7],h:1.3,l:1.7},
+    {d:[1,1.2,0.3],h:1.7,l:1.3},{d:[-1,1.2,-0.3],h:1.7,l:1.3},
+  ];
+  // branches (brown)
+  const bp = Math.floor(n*0.44/branches.length);
+  for (const b of branches) {
+    const len = Math.sqrt(b.d[0]**2+b.d[1]**2+b.d[2]**2);
+    const dn = b.d.map(v=>v/len);
+    for (let i = 0; i < bp; i++) {
+      const t = Math.random(); const sp = 0.1*(1+t)*scale;
+      pos.push(tx+(dn[0]*t*b.l)*scale+gauss(sp), ty+(b.h+dn[1]*t*b.l)*scale+gauss(sp*0.5), tz+(dn[2]*t*b.l)*scale+gauss(sp));
+      col.push(...cTrunk);
+    }
+  }
+  // leaf clusters (green: #00ff88 -> 0.0, 1.0, 0.53)
+  const cLeaf = [0.0, 1.0, 0.53];
+  const lp = Math.floor(n*0.27/branches.length);
+  for (const b of branches) {
+    const len = Math.sqrt(b.d[0]**2+b.d[1]**2+b.d[2]**2);
+    const dn = b.d.map(v=>v/len);
+    const tip = [dn[0]*b.l, b.h+dn[1]*b.l, dn[2]*b.l];
+    for (let i = 0; i < lp; i++) {
+      pos.push(tx+(tip[0])*scale+gauss(0.45*scale), ty+(tip[1])*scale+gauss(0.45*scale), tz+(tip[2])*scale+gauss(0.45*scale));
+      // Add slight color variation for leaves
+      col.push(cLeaf[0] + gauss(0.05), cLeaf[1] + gauss(0.05), cLeaf[2] + gauss(0.05));
+    }
+  }
+  // roots (brown)
+  for (let i = 0; i < Math.floor(n*0.16); i++) {
+    const t = Math.random(); const a = Math.random()*Math.PI*2;
+    pos.push(tx+(Math.cos(a)*t*2.2)*scale+gauss(0.12*scale), ty+(-1.6-t*1.1)*scale+gauss(0.09*scale), tz+(Math.sin(a)*t*1.6)*scale+gauss(0.12*scale));
+    col.push(...cTrunk);
+  }
 }
 
 // ── 1. Chaos cloud ────────────────────────────────────────────────────────────
@@ -102,71 +156,101 @@ export function disc(n = 2800): Float32Array {
   return fill(pos);
 }
 
-// ── 6. Sapling ────────────────────────────────────────────────────────────────
-export function sapling(n = 3200): Float32Array {
+// ── 5.5 Seed (teardrop/oval) ────────────────────────────────────────────────────
+export function seed(n = 2500): ShapeResult {
   const pos: number[] = [];
+  const col: number[] = [];
+  const cSeed = [0.8, 0.6, 0.3]; // Warm golden-brown
+  for (let i = 0; i < n; i++) {
+    const t = Math.random();
+    const rBase = Math.sqrt(Math.random()) * 0.8; // base radius
+    // Taper radius towards top for a seed/teardrop shape
+    const r = rBase * (1.0 - t * 0.6); 
+    const theta = Math.random() * Math.PI * 2;
+    // Height from -0.8 to 0.8
+    const y = (t * 2.0 - 1.0) * 0.8;
+    pos.push(r*Math.cos(theta)+gauss(0.04), y+gauss(0.04), r*Math.sin(theta)+gauss(0.04));
+    col.push(cSeed[0] + gauss(0.02), cSeed[1] + gauss(0.02), cSeed[2] + gauss(0.02));
+  }
+  return { positions: fill(pos), colors: fillColors(col, 0.8, 0.6, 0.3) };
+}
+
+// ── 6. Sapling ────────────────────────────────────────────────────────────────
+export function sapling(n = 3200): ShapeResult {
+  const pos: number[] = [];
+  const col: number[] = [];
+  const cTrunk = [0.54, 0.35, 0.17];
+  const cLeaf = [0.0, 1.0, 0.53];
   // trunk
   for (let i = 0; i < Math.floor(n*0.22); i++) {
     const t = Math.random();
     pos.push(gauss(0.09), t*2.8-0.6, gauss(0.09));
+    col.push(...cTrunk);
   }
-  // 2 branches
+  // 2 branches (leaves at tips)
   for (const sx of [-1,1]) {
     for (let i = 0; i < Math.floor(n*0.22); i++) {
       const t = Math.random();
       pos.push(sx*t*1.6+gauss(0.08), 1.6+t*0.9+gauss(0.08), gauss(0.08));
+      // Top 30% of branches get green leaves, bottom 70% get brown branch color
+      if (t > 0.7) col.push(cLeaf[0]+gauss(0.05), cLeaf[1]+gauss(0.05), cLeaf[2]+gauss(0.05));
+      else col.push(...cTrunk);
     }
   }
   // roots
   for (let i = 0; i < Math.floor(n*0.18); i++) {
     const t = Math.random(); const a = Math.random()*Math.PI*2;
     pos.push(Math.cos(a)*t*1.3+gauss(0.07), -0.6-t*0.9+gauss(0.07), Math.sin(a)*t*0.6+gauss(0.07));
+    col.push(...cTrunk);
   }
-  // disc remnant
+  // dirt remnant
+  const cDirt = [0.4, 0.25, 0.1];
   for (let i = 0; i < Math.floor(n*0.16); i++) {
     const r = 1.6*Math.sqrt(Math.random()), theta = Math.random()*Math.PI*2;
     pos.push(r*Math.cos(theta)+gauss(0.04), -0.6+gauss(0.04), r*Math.sin(theta)+gauss(0.04));
+    col.push(cDirt[0]+gauss(0.02), cDirt[1]+gauss(0.02), cDirt[2]+gauss(0.02));
   }
-  return fill(pos);
+  return { positions: fill(pos), colors: fillColors(col, 0.54, 0.35, 0.17) };
 }
 
 // ── 7. Full 3D tree ───────────────────────────────────────────────────────────
 export function tree(n = 4500): Float32Array {
   const pos: number[] = [];
-  // trunk
-  for (let i = 0; i < Math.floor(n*0.13); i++) {
-    const t = Math.random(); const r = 0.18*(1-t*0.65);
-    pos.push(gauss(r), t*3.8-1.6, gauss(r));
+  pushTree(pos, n, 0, 0, 0, 1.0);
+  return fill(pos);
+}
+
+// ── 7.5 Full 3D Forest ────────────────────────────────────────────────────────
+export function forest(n = 4500): Float32Array {
+  const pos: number[] = [];
+  
+  // Center large tree
+  const centerN = Math.floor(n * 0.4);
+  pushTree(pos, centerN, 0, 0, 0, 1.1);
+
+  // Surrounding smaller trees
+  const numTrees = 5;
+  const treeN = Math.floor((n - centerN) / numTrees);
+  
+  for (let i = 0; i < numTrees; i++) {
+    const angle = (i / numTrees) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = 3.5 + Math.random() * 1.5;
+    const tx = Math.cos(angle) * dist;
+    const tz = Math.sin(angle) * dist;
+    const scale = 0.4 + Math.random() * 0.3;
+    // Lower them slightly so they look planted on the same implicit ground level
+    const ty = -1.6 * (1.1 - scale);
+    pushTree(pos, treeN, tx, ty, tz, scale);
   }
-  const branches = [
-    {d:[1,1,0],h:0.9,l:2.0},{d:[-1,1,0],h:0.9,l:2.0},
-    {d:[0.7,0.85,0.7],h:1.3,l:1.7},{d:[-0.7,0.85,0.7],h:1.3,l:1.7},
-    {d:[0.7,0.85,-0.7],h:1.3,l:1.7},{d:[-0.7,0.85,-0.7],h:1.3,l:1.7},
-    {d:[1,1.2,0.3],h:1.7,l:1.3},{d:[-1,1.2,-0.3],h:1.7,l:1.3},
-  ];
-  const bp = Math.floor(n*0.44/branches.length);
-  for (const b of branches) {
-    const len = Math.sqrt(b.d[0]**2+b.d[1]**2+b.d[2]**2);
-    const dn = b.d.map(v=>v/len);
-    for (let i = 0; i < bp; i++) {
-      const t = Math.random(); const sp = 0.1*(1+t);
-      pos.push(dn[0]*t*b.l+gauss(sp), b.h+dn[1]*t*b.l+gauss(sp*0.5), dn[2]*t*b.l+gauss(sp));
-    }
+
+  // Add some ground moss/grass scattering to fill space
+  const remaining = n - pos.length / 3;
+  for (let i = 0; i < remaining; i++) {
+    const r = Math.sqrt(Math.random()) * 5.0;
+    const a = Math.random() * Math.PI * 2;
+    pos.push(r * Math.cos(a), -1.8 + gauss(0.1), r * Math.sin(a));
   }
-  // leaf clusters
-  const lp = Math.floor(n*0.27/branches.length);
-  for (const b of branches) {
-    const len = Math.sqrt(b.d[0]**2+b.d[1]**2+b.d[2]**2);
-    const dn = b.d.map(v=>v/len);
-    const tip = [dn[0]*b.l, b.h+dn[1]*b.l, dn[2]*b.l];
-    for (let i = 0; i < lp; i++)
-      pos.push(tip[0]+gauss(0.45), tip[1]+gauss(0.45), tip[2]+gauss(0.45));
-  }
-  // roots
-  for (let i = 0; i < Math.floor(n*0.16); i++) {
-    const t = Math.random(); const a = Math.random()*Math.PI*2;
-    pos.push(Math.cos(a)*t*2.2+gauss(0.12), -1.6-t*1.1+gauss(0.09), Math.sin(a)*t*1.6+gauss(0.12));
-  }
+
   return fill(pos);
 }
 
@@ -347,8 +431,11 @@ export function arch(arcAngle: number, innerR: number, tubeR: number, n: number)
 export function rocket(n = 4500): Float32Array {
   const pos: number[] = [];
 
+  // We cap the body particle count to 2000 to free up a MASSIVE amount of particles for the gorgeous gas swirl
+  const bodyN = Math.min(n, 2000);
+
   // Body cylinder: y = -1.0 → +1.7, radius 0.36
-  for (let i = 0; i < Math.floor(n * 0.28); i++) {
+  for (let i = 0; i < Math.floor(bodyN * 0.28); i++) {
     const y = -1.0 + Math.random() * 2.7;
     const a = Math.random() * Math.PI * 2;
     const r = 0.36 + gauss(0.03);
@@ -356,7 +443,7 @@ export function rocket(n = 4500): Float32Array {
   }
 
   // Nose cone: y = 1.7 → 2.9, tapers 0.36 → 0
-  for (let i = 0; i < Math.floor(n * 0.16); i++) {
+  for (let i = 0; i < Math.floor(bodyN * 0.16); i++) {
     const t = Math.random();
     const y = 1.7 + t * 1.2;
     const r = 0.36 * (1 - t) + gauss(0.03);
@@ -367,7 +454,7 @@ export function rocket(n = 4500): Float32Array {
   // 4 delta fins (at 0°, 90°, 180°, 270°)
   for (let f = 0; f < 4; f++) {
     const fa = (f / 4) * Math.PI * 2;
-    const pp = Math.floor(n * 0.26 / 4);
+    const pp = Math.floor(bodyN * 0.26 / 4);
     for (let i = 0; i < pp; i++) {
       const t = Math.random();          // 0 = root, 1 = tip along height
       const s = Math.random() * (1 - t * 0.75); // width tapers toward tip
@@ -378,7 +465,7 @@ export function rocket(n = 4500): Float32Array {
   }
 
   // Engine bell nozzle: y = -2.0 → -2.5, flares 0.36 → 0.85
-  for (let i = 0; i < Math.floor(n * 0.14); i++) {
+  for (let i = 0; i < Math.floor(bodyN * 0.14); i++) {
     const t = Math.random();
     const y = -2.0 - t * 0.5;
     const r = 0.36 + t * 0.49 + gauss(0.035);
@@ -387,16 +474,26 @@ export function rocket(n = 4500): Float32Array {
   }
 
   // Window dome (porthole on body front face)
-  for (let i = 0; i < Math.floor(n * 0.08); i++) {
+  for (let i = 0; i < Math.floor(bodyN * 0.08); i++) {
     const pr = Math.sqrt(Math.random()) * 0.2;
     const pa = Math.random() * Math.PI * 2;
     pos.push(0.36 + pr * Math.cos(pa) * 0.5 + gauss(0.02), 0.7 + pr * Math.sin(pa) + gauss(0.02), gauss(0.03));
   }
 
   // Body interior fill (stripes / panel lines)
-  for (let i = 0; i < Math.floor(n * 0.08); i++) {
+  for (let i = 0; i < Math.floor(bodyN * 0.08); i++) {
     const y = -1.0 + Math.random() * 2.7;
     const r = Math.random() * 0.36;
+    const a = Math.random() * Math.PI * 2;
+    pos.push(r * Math.cos(a), y, r * Math.sin(a));
+  }
+
+  // Engine fire / flame plume: y = -2.5 to -5.5
+  const flameN = MAX_PARTICLES - (pos.length / 3);
+  for (let i = 0; i < flameN; i++) {
+    const t = Math.random();
+    const y = -2.5 - t * 3.0; // shoots down to -5.5
+    const r = (0.45 * (1.0 - t * 0.5)) + gauss(0.08);
     const a = Math.random() * Math.PI * 2;
     pos.push(r * Math.cos(a), y, r * Math.sin(a));
   }
@@ -573,11 +670,89 @@ export function spacePlane(n = 4200): Float32Array {
   return fill(pos);
 }
 
+// ── 19. Planet — dense sphere + lat/lon grid + tilted orbital ring + atmosphere ──
+export function planet(n = 4500): Float32Array {
+  const pos: number[] = [];
+  const R = 2.2;
+
+  // Dense filled sphere (the planet body)
+  for (let i = 0; i < Math.floor(n * 0.38); i++) {
+    const r = R * Math.cbrt(Math.random());
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    pos.push(
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.sin(phi) * Math.sin(theta),
+      r * Math.cos(phi)
+    );
+  }
+
+  // Latitude lines (horizontal parallels)
+  const latLines = [-1.5, -1.0, -0.4, 0, 0.4, 1.0, 1.5];
+  for (const latY of latLines) {
+    const ringR = Math.sqrt(Math.max(0, R * R - latY * latY));
+    for (let i = 0; i < Math.floor(n * 0.03); i++) {
+      const theta = Math.random() * Math.PI * 2;
+      pos.push(
+        ringR * Math.cos(theta) + gauss(0.035),
+        latY + gauss(0.025),
+        ringR * Math.sin(theta) + gauss(0.035)
+      );
+    }
+  }
+
+  // Longitude lines (vertical meridians)
+  for (let m = 0; m < 8; m++) {
+    const baseAngle = (m / 8) * Math.PI * 2;
+    for (let i = 0; i < Math.floor(n * 0.025); i++) {
+      const phi = Math.random() * Math.PI;
+      const r2 = R + gauss(0.03);
+      pos.push(
+        r2 * Math.sin(phi) * Math.cos(baseAngle) + gauss(0.025),
+        r2 * Math.cos(phi),
+        r2 * Math.sin(phi) * Math.sin(baseAngle) + gauss(0.025)
+      );
+    }
+  }
+
+  // Tilted orbital ring (like Saturn) — tilted 28° on X
+  const ringTilt = Math.PI / 6.5;
+  const ringInner = 2.9, ringOuter = 4.4;
+  for (let i = 0; i < Math.floor(n * 0.22); i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const r = ringInner + Math.random() * (ringOuter - ringInner);
+    const x0 = r * Math.cos(theta) + gauss(0.05);
+    const z0 = r * Math.sin(theta) + gauss(0.05);
+    const y0 = gauss(0.04);
+    // Rotate by ringTilt around X axis
+    pos.push(
+      x0,
+      y0 * Math.cos(ringTilt) - z0 * Math.sin(ringTilt),
+      y0 * Math.sin(ringTilt) + z0 * Math.cos(ringTilt)
+    );
+  }
+
+  // Outer atmosphere / glow cloud
+  for (let i = 0; i < Math.floor(n * 0.10); i++) {
+    const r = R + 0.05 + Math.random() * 0.45;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    pos.push(
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.sin(phi) * Math.sin(theta),
+      r * Math.cos(phi)
+    );
+  }
+
+  return fill(pos);
+}
+
 // Registry for dynamic lookup
 export const SHAPES: Record<ShapeName, () => Float32Array> = {
   chaos, streams, cube, torusKnot,
   disc, sapling, tree, globe,
   hexagon, hexChain, seal, diamond,
   hubSeal, starfield,
-  rocket, launchPad, sunCore, spacePlane,
+  rocket, launchPad, sunCore, spacePlane, planet, forest,
 };
+
