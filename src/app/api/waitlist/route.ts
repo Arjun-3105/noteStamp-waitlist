@@ -29,7 +29,6 @@ export async function POST(req: NextRequest) {
           source: 'landing-page',
         },
       ],
-      { ignoreDuplicates: true },
     );
 
     if (supabaseError) {
