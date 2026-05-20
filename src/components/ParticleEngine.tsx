@@ -46,6 +46,13 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
     flameAngle:   Float32Array;   // current angular position (radians)
     flameAngVel:  Float32Array;   // angular velocity — mix of CW and CCW for turbulence
     flameRadius:  Float32Array;   // base radius at nozzle
+    // Cinematic camera glide state
+    camPosX:      number;
+    camPosY:      number;
+    camPosZ:      number;
+    lookAtX:      number;
+    lookAtY:      number;
+    lookAtZ:      number;
   } | null>(null);
 
   // Sync morphTo callback
@@ -69,9 +76,9 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Renderer — use native device pixel ratio for crisp retina/high-DPI output
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 0);
 
@@ -156,6 +163,8 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
       animId: 0, time: 0, activeShapeTime: 0,
       smoothProgress: 0,
       flameVY, flameAngle, flameAngVel, flameRadius,
+      camPosX: 0, camPosY: 0, camPosZ: 8,
+      lookAtX: 0, lookAtY: 0, lookAtZ: 0,
     };
 
     // Scatter intro
@@ -175,6 +184,36 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
     stateRef.current.morphStartTime   = performance.now() + 300;
 
     const easeInOutCubic = (t: number) => t < 0.5 ? 4*t*t*t : 1-(-2*t+2)**3/2;
+
+    // Helper to get custom camera settings for scrollytelling scenes
+    const getCameraTargets = (shape: ShapeName) => {
+      switch (shape) {
+        // Earn journey
+        case 'sunCore':
+          return { cx: 0,   cy: 0,   cz: 6.5, lx: 0, ly: 0, lz: 0 };
+        case 'disc':
+          return { cx: 0,   cy: 0.3, cz: 5.5, lx: 0, ly: 0, lz: 0 }; // eye-level medal
+        case 'cube':
+          return { cx: 0.8, cy: 0.5, cz: 6.2, lx: 0, ly: 0, lz: 0 }; // 3/4 corner view
+        case 'streams':
+          return { cx: 0,   cy: 0,   cz: 9.5, lx: 0, ly: 0, lz: 0 }; // pull back to see all 6 streams
+        case 'hubSeal':
+          return { cx: 0.5, cy: 0.5, cz: 6.0, lx: 0, ly: 0, lz: 0 }; // slight high-angle
+        case 'torusKnot':
+          return { cx: 0,   cy: 0.3, cz: 5.8, lx: 0, ly: 0, lz: 0 }; // close & dramatic
+        // Learn / Import journeys keep default camera
+        case 'hexagon':
+          return { cx: 0, cy: 0.3, cz: 4.6, lx: 0, ly: 0, lz: 0 };
+        case 'hexChain':
+          return { cx: 0, cy: 0, cz: 7.8, lx: 0, ly: 0, lz: 0 };
+        case 'seal':
+          return { cx: 1.4, cy: 1.2, cz: 5.2, lx: 0, ly: 0, lz: 0 };
+        case 'diamond':
+          return { cx: 0, cy: 0, cz: 4.2, lx: 0, ly: 0, lz: 0 };
+        default:
+          return { cx: 0, cy: 0, cz: 8, lx: 0, ly: 0, lz: 0 };
+      }
+    };
 
     // sunCore original radii tracking
     const sunBaseR = new Float32Array(MAX_PARTICLES);
@@ -395,7 +434,6 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
         s.mainPoints.position.x = s.targetMouseX * 0.3;
         s.mainPoints.position.y = -s.targetMouseY * 0.2 + Math.sin(t * 0.5) * 0.08;
       }
-
       // ╔═══════════════════════════════════════════════════════════════════╗
       // ║  PLANET — slow spin + tilt                                        ║
       // ╚═══════════════════════════════════════════════════════════════════╝
@@ -406,6 +444,71 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
         s.mainPoints.position.x  = s.targetMouseX * 0.3;
         s.mainPoints.position.y  = -s.targetMouseY * 0.2;
       }
+      // ╔═══════════════════════════════════════════════════════════════════╗
+      // ║  DISC — spinning gold medal / badge presentation                  ║
+      // ╚═══════════════════════════════════════════════════════════════════╝
+      else if (currentShape === 'disc') {
+        const t = s.time;
+        const matD2 = s.mainPoints.material as THREE.PointsMaterial;
+        // Tilt so disc reads as a 3D coin (not flat-on)
+        // Coin-flip spin on Y, slight wobble on X for depth
+        s.mainPoints.rotation.y += 0.014;
+        s.mainPoints.rotation.x = 0.52 + Math.sin(t * 0.5) * 0.10 - s.targetMouseY * 0.08;
+        s.mainPoints.rotation.z = Math.sin(t * 0.35) * 0.06;
+        // Gold shimmer — surface reflects as coin spins
+        matD2.opacity = 0.75 + Math.abs(Math.sin(t * 2.8 + s.mainPoints.rotation.y)) * 0.25;
+        matD2.size = 0.044 + Math.abs(Math.sin(t * 3.2)) * 0.012;
+        // Gentle floating
+        s.mainPoints.position.y = Math.sin(t * 0.38) * 0.12 - s.targetMouseY * 0.1;
+        s.mainPoints.position.x = s.targetMouseX * 0.25;
+      }
+      // ╔═══════════════════════════════════════════════════════════════════╗
+      // ║  CUBE — badges crystallising into a solid geometric skill block    ║
+      // ╚═══════════════════════════════════════════════════════════════════╝
+      else if (currentShape === 'cube') {
+        const t = s.time;
+        const matC = s.mainPoints.material as THREE.PointsMaterial;
+        // Steady tumble showing all 3 axes — the structure has depth, solidity
+        s.mainPoints.rotation.y += 0.006;
+        s.mainPoints.rotation.x += 0.004;
+        s.mainPoints.rotation.z = Math.sin(t * 0.2) * 0.05;
+        // Steady bright glow — the solid achievement radiates
+        matC.opacity = 0.80 + Math.abs(Math.sin(t * 1.4)) * 0.20;
+        matC.size = 0.048 + Math.abs(Math.sin(t * 1.8)) * 0.010;
+        s.mainPoints.position.y = Math.sin(t * 0.3) * 0.10 - s.targetMouseY * 0.10;
+        s.mainPoints.position.x = s.targetMouseX * 0.3;
+      }
+      // ╔═══════════════════════════════════════════════════════════════════╗
+      // ║  HUB SEAL — slow dignified credential spin                        ║
+      // ╚═══════════════════════════════════════════════════════════════════╝
+      else if (currentShape === 'hubSeal') {
+        const t = s.time;
+        const matS = s.mainPoints.material as THREE.PointsMaterial;
+        // Steady coin-like rotation — authoritative, official
+        s.mainPoints.rotation.y += 0.008;
+        s.mainPoints.rotation.x = Math.sin(t * 0.3) * 0.12 - s.targetMouseY * 0.10;
+        s.mainPoints.rotation.z = Math.cos(t * 0.22) * 0.04;
+        // Gentle pulse — like a heartbeat of authority
+        matS.opacity = 0.78 + Math.abs(Math.sin(t * 1.6)) * 0.22;
+        s.mainPoints.position.y = Math.sin(t * 0.4) * 0.1 - s.targetMouseY * 0.15;
+        s.mainPoints.position.x = s.targetMouseX * 0.3;
+      }
+      // ╔═══════════════════════════════════════════════════════════════════╗
+      // ║  TORUS KNOT — on-chain permanence, mathematical immutability      ║
+      // ╚═══════════════════════════════════════════════════════════════════╝
+      else if (currentShape === 'torusKnot') {
+        const t = s.time;
+        const matK = s.mainPoints.material as THREE.PointsMaterial;
+        // Slow majestic rotation on all axes — the knot turns in space forever
+        s.mainPoints.rotation.y += 0.009;
+        s.mainPoints.rotation.x += 0.004;
+        s.mainPoints.rotation.z = Math.sin(t * 0.18) * 0.08;
+        // Cyan blockchain shimmer
+        matK.opacity = 0.70 + Math.abs(Math.sin(t * 2.2)) * 0.30;
+        matK.size = 0.045 + Math.abs(Math.sin(t * 2.8)) * 0.012;
+        s.mainPoints.position.y = Math.sin(t * 0.35) * 0.08 - s.targetMouseY * 0.12;
+        s.mainPoints.position.x = s.targetMouseX * 0.3;
+      }
 
       // ── Default float ────────────────────────────────────────────────────
       else {
@@ -415,15 +518,47 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
         s.mainPoints.position.x = 0;
       }
 
-      // Star slow drift
-      s.starPoints.rotation.y += 0.00008;
-      s.starPoints.rotation.x += 0.00004;
+      // Star drift — hyperdrive warp on the final torusKnot (on-chain) scene
+      let starSpeedY = 0.00008;
+      let starSpeedX = 0.00004;
+      if (currentShape === 'torusKnot') {
+        // On-chain finale: stars warp outward as the knot spins eternally
+        starSpeedY = 0.0020;
+        starSpeedX = 0.0010;
+        const starMat = s.starPoints.material as THREE.PointsMaterial;
+        starMat.size = 0.07 + Math.abs(Math.sin(s.time * 1.6)) * 0.05;
+      } else if (currentShape === 'planet') {
+        starSpeedY = 0.0018;
+        starSpeedX = 0.0009;
+        const starMat = s.starPoints.material as THREE.PointsMaterial;
+        starMat.size = 0.07 + Math.abs(Math.sin(s.time * 1.8)) * 0.04;
+      } else if (currentShape === 'diamond') {
+        starSpeedY = 0.0016;
+        starSpeedX = 0.0008;
+        const starMat = s.starPoints.material as THREE.PointsMaterial;
+        starMat.size = 0.06 + Math.abs(Math.sin(s.time * 2.0)) * 0.03;
+      } else {
+        const starMat = s.starPoints.material as THREE.PointsMaterial;
+        starMat.size = 0.06;
+      }
+      s.starPoints.rotation.y += starSpeedY;
+      s.starPoints.rotation.x += starSpeedX;
 
-      // Camera parallax
-      const px = currentShape === 'planet' ? 0.25 : 0.5;
-      s.camera.position.x = s.targetMouseX * px;
-      s.camera.position.y = 0.4 - s.targetMouseY * px * 0.5;
-      s.camera.lookAt(0, 0, 0);
+      // Glide Camera dynamically to shape targets
+      const targets = getCameraTargets(currentShape);
+      s.camPosX += (targets.cx - s.camPosX) * 0.05;
+      s.camPosY += (targets.cy - s.camPosY) * 0.05;
+      s.camPosZ += (targets.cz - s.camPosZ) * 0.05;
+      s.lookAtX += (targets.lx - s.lookAtX) * 0.05;
+      s.lookAtY += (targets.ly - s.lookAtY) * 0.05;
+      s.lookAtZ += (targets.lz - s.lookAtZ) * 0.05;
+
+      // Camera parallax with smooth position glide
+      const px = (currentShape === 'planet' || currentShape === 'streams') ? 0.22 : 0.5;
+      s.camera.position.x = s.camPosX + s.targetMouseX * px;
+      s.camera.position.y = s.camPosY - s.targetMouseY * px * 0.5;
+      s.camera.position.z = s.camPosZ;
+      s.camera.lookAt(s.lookAtX, s.lookAtY, s.lookAtZ);
 
       s.renderer.render(s.scene, s.camera);
     }
@@ -434,6 +569,8 @@ export default function ParticleEngine({ shapeName, color, launchProgress = 0, o
       if (!s) return;
       s.camera.aspect = window.innerWidth / window.innerHeight;
       s.camera.updateProjectionMatrix();
+      // Re-apply pixel ratio in case user moved window to a different screen
+      s.renderer.setPixelRatio(window.devicePixelRatio);
       s.renderer.setSize(window.innerWidth, window.innerHeight);
     };
     const onMouse = (e: MouseEvent) => {
