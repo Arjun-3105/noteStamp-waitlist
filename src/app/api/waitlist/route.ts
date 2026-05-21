@@ -7,20 +7,6 @@ function isValidEmail(value: unknown): value is string {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function extractCountFromFreeWaitlists(data: unknown): number | null {
-  if (!data || typeof data !== 'object') return null;
-  const payload = data as Record<string, unknown>;
-  const keys = ['count', 'total', 'subscribers', 'participants', 'waitlistCount'];
-
-  for (const key of keys) {
-    const value = payload[key];
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string' && /^\d+$/.test(value)) return parseInt(value, 10);
-  }
-
-  return null;
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
