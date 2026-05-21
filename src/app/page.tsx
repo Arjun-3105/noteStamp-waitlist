@@ -293,7 +293,7 @@ export default function HubPage() {
   return (
     <main className="relative w-full h-screen overflow-hidden bg-[#030303]">
       <HubCanvas />
-      <Nav />
+      <Nav hideContact />
 
       {/* ── Portal labels ─────────────────────────────────────────────────── */}
       {/* Desktop: left/right/top. Mobile: stacked row at bottom 3rd of screen */}

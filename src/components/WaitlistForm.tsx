@@ -12,14 +12,18 @@ export default function WaitlistForm() {
     setLoadingCount(true);
 
     try {
-      const res = await fetch('/api/waitlist');
+      const res = await fetch('/api/waitlist', { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
-      if (typeof data.count === 'number') {
-        setCount(data.count);
-      }
+      const parsedCount =
+        typeof data.count === 'number'
+          ? data.count
+          : typeof data.count === 'string' && /^\d+$/.test(data.count)
+          ? parseInt(data.count, 10)
+          : 0;
+      setCount(parsedCount);
     } catch {
-      // ignore count load errors
+      setCount(0);
     } finally {
       setLoadingCount(false);
     }
