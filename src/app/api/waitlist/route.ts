@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
 const FREEWAITLISTS_ENDPOINT = process.env.FREEWAITLISTS_ENDPOINT;
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 function isValidEmail(value: unknown): value is string {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -95,9 +93,12 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
-    const { data, count, error } = await supabaseAdmin
+    const { count, error } = await supabaseAdmin
       .from('waitlist')
-      .select('id', { count: 'exact' })
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
 
     if (error) {
       console.error('Supabase error:', error)
@@ -108,22 +109,8 @@ export async function GET() {
       )
     }
 
-    const countValue =
-      typeof count === 'number'
-        ? count
-        : Array.isArray(data)
-        ? data.length
-        : 0
-
-    if (count === null || count === undefined) {
-      console.warn('Supabase count metadata missing, using fallback row length', {
-        fallback: countValue,
-        dataLength: Array.isArray(data) ? data.length : null,
-      })
-    }
-
     return NextResponse.json({
-      count: countValue,
+      count: count ?? 0,
     })
 
   } catch (error) {
